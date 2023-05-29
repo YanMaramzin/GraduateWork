@@ -15,9 +15,9 @@ ue.Shortened = 0;             % Отсутствие передачи SRS
 ue.NTxAnts = NTxAnts;
 ue.NSubframe = 0;
 usersPUCCHpower = 3;
-
-SNRdB = [-16.1 10 -8.1 -4.1]; 
-SNR = 10^(SNRdB(1)/20);
+% 
+% SNRdB = [-16.1 10 -8.1 -4.1]; 
+% SNR = 10^(SNRdB(1)/20);
 %% PUCCH 1a настройка
 % Бит индикатора гибридного автоматического запроса на повторение (HARQ) установлен равным единице. Только
 % для PUCCH 1a требуется один бит
@@ -51,13 +51,15 @@ channel.InitTime = 0;
 info = lteSCFDMAInfo(ue);
 % Частота дискретизации канала
 channel.SamplingRate = info.SamplingRate;   
-ueChannelSeed = randi(1000,[1,36]);
+% ueChannelSeed = randi(1000,[1,36]);
+ueChannelSeed =1:36;
 % Данный цикл используется для реализации метода Монте-Карло
-txACK = 1;
+% txACK = 1;
 
 for i=1:36
     % Цикл для моделирования многопользовательского приема
-        for user = 1:11
+    for j=1:10
+        for user = 1:i
             % Создание пустой сетки ресурсов для UE
             txgrid = lteULResourceGrid(ue);
             % Настройка индекс ресурса для данного UE
@@ -68,11 +70,11 @@ for i=1:36
         % других пользователей он содержит случайный индикатор HARQ. 
         % Поскольку существуетодиночный индикатор, передача будет 
         % осуществляться в формате 1a.DMRS в формате PUCCH 1 не содержит данных.
-%         if (mod(user,2)==1)
-%             txACK = 1;
-%         elseif mod(user,2)==0
-%             txACK = 0;
-%         end
+        if (mod(user,2)==1)
+            txACK = 1;
+        elseif mod(user,2)==0
+            txACK = 0;
+        end
         % Генерировать PUCCH 1 и его DRS
         % Каждому 
         [pucch1Sym,infoPUCCH] = ltePUCCH1(ue,pucch,txACK);
@@ -87,23 +89,20 @@ for i=1:36
         pucch1Indices = ltePUCCH1Indices(ue,pucch);
         pucch1DRSIndices = ltePUCCH1DRSIndices(ue,pucch);
             
-        userOrtSeqIdx(user,:)=infoPUCCH.OrthSeqIdx;
+%         userOrtSeqIdx(user,:)=infoPUCCH.OrthSeqIdx;
         userAlpha(user,:)=infoPUCCH.Alpha;
-        userNCellCyclicShift(user,:)=infoPUCCH.NCellCyclicShift;
-        userScrambSeq(user,:)=infoPUCCH.ScrambSeq;
-        userSeqGroup(user,:)=infoPUCCH.SeqGroup;
-        userNResourceIdx(user,:)=infoPUCCH.NResourceIdx;
-        userSeqIdx(user,:)=infoPUCCH.SeqIdx;
-        userSeqGroup(user,:)=infoPUCCH.SeqGroup;
+%         userNCellCyclicShift(user,:)=infoPUCCH.NCellCyclicShift;
+%         userScrambSeq(user,:)=infoPUCCH.ScrambSeq;
+%         userSeqGroup(user,:)=infoPUCCH.SeqGroup;
+%         userNResourceIdx(user,:)=infoPUCCH.NResourceIdx;
+%         userSeqIdx(user,:)=infoPUCCH.SeqIdx;
+%         userSeqGroup(user,:)=infoPUCCH.SeqGroup;
 
         % Отображение PUCCH 1 и PUCCH 1 DRS на сетку ресурсов
         if (~isempty(txACK))
             txgrid(pucch1Indices) = pucch1Sym;
             txgrid(pucch1DRSIndices) = pucch1DRSSym;
         end
-
-
-
         % SC-FDMA модуляция
         txwave = lteSCFDMAModulate(ue,txgrid);
 
@@ -114,55 +113,52 @@ for i=1:36
         % разброса задержки канала ). На каждой итерации цикла мы накапливаем
         % сумму каждого переданного сигнала, имитирующую прием
         % всех пользователей на базовой станции.
-%         channel.Seed = ueChannelSeed;
-%         if (user==1)
+%         rng(user,"twister");
+%         channel.Seed = ueChannelSeed(user);
+        if (user==1)
 %             rxwave = lteFadingChannel(channel,[txwave; zeros(25,NTxAnts)]);
-%         else
+              rxwave=awgn(txwave,100);
+        else
 %             rxwave = rxwave + lteFadingChannel(channel,[txwave; zeros(25,NTxAnts)]);
-%         end
+              rxwave=rxwave+awgn(txwave,100);
+        end
     end
 
     %Коэффициент нормировки шума
-%     N = 1/(SNR*sqrt(double(info.Nfft)))/sqrt(2.0*ue.NTxAnts);
-    %Добавление гауссовского шума в приемнике
-%     rxwave = awgn(rxwave,100,3);
-    rxwave = awgn(txwave,100,3);
+    %Добавление аддитивного гауссовского белого шума
+%     noise=complex(randn(size(rxwave)),randn(size(rxwave)))/100000000;
+%     rxwave = awgn(rxwave,100);
+%     rxwave=rxwave+noise;
 
-    pucch.ResourceIdx = usersPUCCHindices(1);
-    offset = lteULFrameOffsetPUCCH1(ue,pucch,rxwave);
-        if (offset<25)
-            offsetused = offset;
-        end
+    pucch.ResourceIdx = usersPUCCHindices(1:user);
+      pucch.ResourceIdx = usersPUCCHindices(user);
+%     offset = lteULFrameOffsetPUCCH1(ue,pucch,rxwave);
+%     if (offset<25)
+%        offsetused = offset;
+%     end
 
     pucch1Indices = ltePUCCH1Indices(ue,pucch);
     rxgrid2 = lteSCFDMADemodulate(ue,rxwave(:,:));
     
-
     %Прохождение  CyclicShift
     alpha=userAlpha(1:user,1:4);
     nCS=alpha*12/(2*pi);
 
-[dispersion(i),Pr2(i)]=lteVarianceCalculation(rxgrid2,nCS);
+dispersion(i,j)=lteVarianceCalculation(rxgrid2,nCS);
 end
-
+end
 
 user=1:36;
 figure
-plot(user,mean(dispersion,2)),grid on
+plot(user,dispersion),grid on
 xlabel("UE")
 ylabel("\sigma^2")
 title("Зависимость оценки дисперсии от количества UE")
 
 freeCell=47:-1:12;
 Fish=mean(dispersion,2).^2./freeCell;
-figure
-plot(freeCell,mean(Fish,2)),grid on
 
-% figure
-% plot(Pr2),grid on
-% figure
-% histogram(dispersion(1,:))
-% figure
-% histfit(dispersion(1,:))
-% figure
-% histfit(dispersion(2,:))
+figure
+plot(freeCell,diag(Fish)),grid on
+
+

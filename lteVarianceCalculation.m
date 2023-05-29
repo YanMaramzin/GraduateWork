@@ -1,4 +1,4 @@
-function [D,Pr2]=lteVarianceCalculation(resourceGrid,nCS)
+function D=lteVarianceCalculation(resourceGrid,nCS)
    %Ортогональные последовательности
     w=[ 1 1 1 1;
         1 -1 1 -1;
@@ -31,5 +31,4 @@ function [D,Pr2]=lteVarianceCalculation(resourceGrid,nCS)
     
     %Оценка дисперсии по методу максимального правдопадобия
     D=sum(r.*conj(r))/length(r);
-    Pr2=-(length(r)/D.^2-3/D.^3*sum(abs(r).^2));
 end
