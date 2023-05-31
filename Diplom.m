@@ -14,7 +14,7 @@ ue.NCellID = 150;             % Идентификатор ячейки, ука�
 ue.Shortened = 0;             % Отсутствие передачи SRS
 ue.NTxAnts = NTxAnts;
 ue.NSubframe = 0;
-usersPUCCHpower = 3;
+usersPUCCHpower = 0;
 % 
 % SNRdB = [-16.1 10 -8.1 -4.1]; 
 % SNR = 10^(SNRdB(1)/20);
@@ -57,8 +57,8 @@ ueChannelSeed =1:36;
 % txACK = 1;
 
 for i=1:36
-    % Цикл для моделирования многопользовательского приема
-    for j=1:10
+%     Цикл для моделирования многопользовательского приема
+    for j=1:1000
         for user = 1:i
             % Создание пустой сетки ресурсов для UE
             txgrid = lteULResourceGrid(ue);
@@ -107,35 +107,17 @@ for i=1:36
         txwave = lteSCFDMAModulate(ue,txgrid);
 
         % Моделирование канала и наложение принятых сигналов.
-        % Дополнительные 25 отсчетов, добавленные в конец сигнала.
-        % Они предназначены для покрытия диапазона задержек, ожидаемых при
-        % моделировании канала (комбинация задержки реализации и
-        % разброса задержки канала ). На каждой итерации цикла мы накапливаем
+        % На каждой итерации цикла мы накапливаем
         % сумму каждого переданного сигнала, имитирующую прием
         % всех пользователей на базовой станции.
-%         rng(user,"twister");
-%         channel.Seed = ueChannelSeed(user);
         if (user==1)
-%             rxwave = lteFadingChannel(channel,[txwave; zeros(25,NTxAnts)]);
-              rxwave=awgn(txwave,100);
+            rxwave=awgn(txwave,10);
         else
-%             rxwave = rxwave + lteFadingChannel(channel,[txwave; zeros(25,NTxAnts)]);
-              rxwave=rxwave+awgn(txwave,100);
+            rxwave=rxwave+awgn(txwave,10);
         end
     end
 
-    %Коэффициент нормировки шума
-    %Добавление аддитивного гауссовского белого шума
-%     noise=complex(randn(size(rxwave)),randn(size(rxwave)))/100000000;
-%     rxwave = awgn(rxwave,100);
-%     rxwave=rxwave+noise;
-
-    pucch.ResourceIdx = usersPUCCHindices(1:user);
-      pucch.ResourceIdx = usersPUCCHindices(user);
-%     offset = lteULFrameOffsetPUCCH1(ue,pucch,rxwave);
-%     if (offset<25)
-%        offsetused = offset;
-%     end
+    pucch.ResourceIdx = usersPUCCHindices(user);
 
     pucch1Indices = ltePUCCH1Indices(ue,pucch);
     rxgrid2 = lteSCFDMADemodulate(ue,rxwave(:,:));
@@ -150,15 +132,23 @@ end
 
 user=1:36;
 figure
-plot(user,dispersion),grid on
+plot(user,mean(dispersion,2)),grid on
 xlabel("UE")
 ylabel("\sigma^2")
 title("Зависимость оценки дисперсии от количества UE")
 
 freeCell=47:-1:12;
-Fish=mean(dispersion,2).^2./freeCell;
+Fish=mean(dispersion,2).^2./freeCell';
+
+d=min(mean(dispersion,2)):max(mean(dispersion,2))/36:max(mean(dispersion,2))+min(mean(dispersion,2));
+d=d';
+FishTeor=d(1:36).^2./freeCell';
 
 figure
-plot(freeCell,diag(Fish)),grid on
-
+plot(freeCell,Fish),grid on
+hold on
+plot(freeCell,FishTeor,'LineWidth',2),grid on
+xlabel("Количество свободных ячеек")
+ylabel("Дисперсия СКО")
+legend("Экспериментальная","Теоретическая")
 
